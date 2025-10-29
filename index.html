@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Website cu taburi — Produse & Coș</title>
+<style>
+  :root{--bg:#f5f5f5;--dark:#333;--accent:#007bff;--green:#28a745}
+  body{font-family:Inter, Arial, sans-serif; margin:0; background:var(--bg); color:#111}
+  .tabs{display:flex;background:var(--dark);color:#fff}
+  .tab{flex:1;padding:14px 10px;text-align:center;cursor:pointer}
+  .tab.active{background:#444}
+  .tab-content{display:none;padding:16px}
+  .tab-content.active{display:block}
+  .products{display:flex;flex-wrap:wrap;gap:14px}
+  .product-card{width:160px;background:#fff;border-radius:10px;box-shadow:0 6px 14px rgba(0,0,0,.06);overflow:hidden;text-align:center;padding:10px}
+  .product-card img{width:100%;height:110px;object-fit:cover;border-radius:6px}
+  .product-card .name{margin-top:8px;font-weight:600;font-size:14px;min-height:36px}
+  .product-card .actions{margin-top:10px}
+  .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .add-btn{background:var(--green);color:#fff}
+  #add-product-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;font-size:28px;background:var(--accent);color:#fff;border:0;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.15)}
+  /* cart */
+  .cart-item{display:flex;gap:10px;align-items:center;background:#fff;padding:10px;border-radius:8px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+  .cart-item img{width:64px;height:64px;object-fit:cover;border-radius:6px}
+  .cart-item .nm{flex:1;font-weight:600}
+  .cart-bottom{display:flex;gap:8px;margin-top:14px}
+  input[type=text]{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd}
+  button.send-btn{background:var(--accent);color:#fff;padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+  /* messages list */
+  .message-card{background:#fff;padding:12px;border-radius:8px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,.04)}
+  .msg-meta{font-size:12px;color:#666;margin-bottom:8px}
+  .msg-items{display:flex;flex-wrap:wrap;gap:8px}
+  .msg-item{display:flex;align-items:center;gap:8px;background:#fafafa;padding:6px;border-radius:6px}
+  .msg-item img{width:36px;height:36px;object-fit:cover;border-radius:4px}
+  /* small screens adjust */
+  @media (max-width:520px){
+    .products{justify-content:center}
+    .product-card{width:44%}
+  }
+</style>
+</head>
+<body>
+
+<!-- Tabs -->
+<div class="tabs" id="tabsBar">
+  <div class="tab active" data-tab="produse">Produse</div>
+  <div class="tab" data-tab="cos">Coș</div>
+  <!-- Mesaje tab is inserted dynamically if IP matches -->
+</div>
+
+<!-- PRODUSE -->
+<div id="produse" class="tab-content active">
+  <div style="margin-bottom:10px;color:#333">
+    Lista de produse — apasă + pentru a adăuga unul nou (nume + link imagine)
+  </div>
+  <div class="products" id="products-container">
+    <!-- product cards rendered here -->
+  </div>
+</div>
+
+<!-- COS -->
+<div id="cos" class="tab-content">
+  <div id="cart-container">
+    <!-- cart items -->
+  </div>
+
+  <div class="cart-bottom">
+    <input id="user-name" type="text" placeholder="Numele tău" />
+    <button class="send-btn" id="submit-order">Trimite comanda</button>
+  </div>
+</div>
+
+<!-- MESAGE (inserted dynamically if IP matches) -->
+<!-- Floating add product button -->
+<button id="add-product-btn" title="Adaugă produs">+</button>
+
+<!-- Firebase + App logic -->
+<script type="module">
+/* =========================
+   Firebase config — your provided one
+   ========================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, getDocs,
+  onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCY059AnI44qLOqdkvYy02Yk3L2QPNtzNk",
+  authDomain: "magazun-fa436.firebaseapp.com",
+  projectId: "magazun-fa436",
+  storageBucket: "magazun-fa436.appspot.com",
+  messagingSenderId: "474271636665",
+  appId: "1:474271636665:web:b5018c0ec964f029014f68",
+  measurementId: "G-FKXTG2831Z"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* =========================
+   State
+   ========================= */
+let products = []; // local cache of products (from Firestore)
+let cart = [];     // current visitor cart (local)
+const YOUR_IP = "82.79.226.16"; // the IP you gave me
+
+/* =========================
+   UI refs
+   ========================= */
+const productsContainer = document.getElementById('products-container');
+const cartContainer = document.getElementById('cart-container');
+const addProductBtn = document.getElementById('add-product-btn');
+const submitOrderBtn = document.getElementById('submit-order');
+const userNameInput = document.getElementById('user-name');
+const tabsBar = document.getElementById('tabsBar');
+
+/* =========================
+   Tabs behavior
+   ========================= */
+function setupTabs(){
+  tabsBar.addEventListener('click', (ev) => {
+    const tabEl = ev.target.closest('.tab');
+    if(!tabEl) return;
+    const target = tabEl.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tabEl.classList.add('active');
+    const content = document.getElementById(target);
+    if(content) content.classList.add('active');
+  });
+}
+setupTabs();
+
+/* =========================
+   Products: real-time listener
+   ========================= */
+const productsCol = collection(db, "products");
+const productsQuery = query(productsCol, orderBy("createdAt", "desc"));
+
+onSnapshot(productsQuery, (snap) => {
+  products = [];
+  snap.forEach(doc => {
+    const d = doc.data();
+    // Normalize to ensure name and img exist
+    products.push({
+      id: doc.id,
+      name: d.name || "Produs fără nume",
+      img: d.img || "",
+      createdAt: d.createdAt || null
+    });
+  });
+  renderProducts();
+});
+
+/* Render product cards */
+function renderProducts(){
+  productsContainer.innerHTML = '';
+  if(products.length === 0){
+    productsContainer.innerHTML = '<div style="color:#666">Nu există produse încă. Apasă + pentru a adăuga unul.</div>';
+    return;
+  }
+  products.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    // image fallback: small placeholder SVG data URL
+    const placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect fill='#eee' width='100%' height='100%'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#bbb' font-size='20'>No image</text></svg>`);
+    card.innerHTML = `
+      <div style="height:110px;display:block;overflow:hidden;border-radius:6px">
+        <img src="${sanitizeUrl(p.img) || placeholder}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.src='${placeholder}'" />
+      </div>
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="actions">
+        <button class="btn add-btn" data-index="${idx}">Adaugă la coș</button>
+      </div>
+    `;
+    productsContainer.appendChild(card);
+  });
+  // attach listeners to buttons
+  productsContainer.querySelectorAll('.add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const index = Number(btn.dataset.index);
+      addToCart(index);
+    });
+  });
+}
+
+/* Simple sanitizers for display (not a full security solution) */
+function escapeHtml(str){ return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+function sanitizeUrl(url){
+  if(!url) return '';
+  try{
+    const u = new URL(url);
+    // allow http(s) only
+    if(u.protocol === 'http:' || u.protocol === 'https:') return url;
+    return '';
+  }catch(e){
+    return '';
+  }
+}
+
+/* =========================
+   Add product flow (store into Firestore)
+   ========================= */
+addProductBtn.addEventListener('click', async () => {
+  const name = prompt("Numele produsului:");
+  if(!name) return;
+  const img = prompt("Link imagine produs (http(s) URL):");
+  if(!img) return;
+  // Create with timestamp
+  try{
+    await addDoc(collection(db, "products"), {
+      name: name.trim(),
+      img: img.trim(),
+      createdAt: serverTimestamp()
+    });
+    alert("Produs adăugat.");
+  }catch(err){
+    console.error("Eroare la adăugare produs:", err);
+    alert("Eroare la adăugare produs. Vezi consola.");
+  }
+});
+
+/* =========================
+   Cart logic (local); submission stored to Firestore orders
+   ========================= */
+function addToCart(index){
+  const p = products[index];
+  if(!p) return;
+  cart.push(p);
+  renderCart();
+}
+
+function renderCart(){
+  cartContainer.innerHTML = '';
+  if(cart.length === 0){
+    cartContainer.innerHTML = '<div style="color:#666">Coșul este gol.</div>';
+    return;
+  }
+  cart.forEach((item, idx) => {
+    const el = document.createElement('div');
+    el.className = 'cart-item';
+    el.innerHTML = `
+      <img src="${sanitizeUrl(item.img) || ''}" alt="${escapeHtml(item.name)}" onerror="this.src='data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'><rect fill=\\'#eee\\' width=\\'100%\\' height=\\'100%\\'/><text x=\\'50%\\' y=\\'50%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'#bbb\\' font-size=\\'20\\'>No image</text></svg>`)}'"/>
+      <div class="nm">${escapeHtml(item.name)}</div>
+      <div><button class="btn" data-idx="${idx}" title="Șterge">✕</button></div>
+    `;
+    cartContainer.appendChild(el);
+  });
+  // Remove item buttons
+  cartContainer.querySelectorAll('button[data-idx]').forEach(b => {
+    b.addEventListener('click', () => {
+      const i = Number(b.dataset.idx);
+      cart.splice(i,1);
+      renderCart();
+    });
+  });
+}
+
+/* Submit order: writes to 'orders' collection */
+submitOrderBtn.addEventListener('click', async () => {
+  const name = (userNameInput.value || '').trim();
+  if(!name){ alert("Introdu numele tău înainte să trimiți comanda."); userNameInput.focus(); return; }
+  if(cart.length === 0){ alert("Coșul este gol."); return; }
+
+  const orderData = {
+    name,
+    items: cart.map(i => ({ name: i.name, img: i.img || "" })),
+    createdAt: serverTimestamp()
+  };
+
+  try{
+    await addDoc(collection(db, "orders"), orderData);
+    alert("Comanda ta a fost trimisă (salvată). Mulțumim!");
+    cart = [];
+    renderCart();
+    userNameInput.value = '';
+  }catch(err){
+    console.error("Eroare la trimitere comanda:", err);
+    alert("Eroare la trimitere comanda. Vezi consola.");
+  }
+});
+
+/* =========================
+   Mesaje (orders) tab — appear only if client IP equals YOUR_IP
+   We check the client's public IP via ipify.org
+   ========================= */
+async function checkAndEnableMessagesTab(){
+  try{
+    const resp = await fetch('https://api.ipify.org?format=json');
+    if(!resp.ok) return;
+    const data = await resp.json();
+    const clientIp = data.ip;
+    if(clientIp === YOUR_IP){
+      enableMessagesTab();
+    } else {
+      // not your IP — do nothing
+      console.log("Client IP is", clientIp, "— not the owner IP.");
+    }
+  }catch(err){
+    console.warn("Could not detect IP:", err);
+  }
+}
+
+/* Insert Mesaje tab and content, attach listener for orders */
+function enableMessagesTab(){
+  // add tab button
+  const tabEl = document.createElement('div');
+  tabEl.className = 'tab';
+  tabEl.dataset.tab = 'mesaje';
+  tabEl.innerText = 'Mesaje';
+  tabsBar.appendChild(tabEl);
+
+  // add tab content container
+  const container = document.createElement('div');
+  container.id = 'mesaje';
+  container.className = 'tab-content';
+  container.innerHTML = `<div style="margin-bottom:10px;color:#333">Toate comenzile primite (live)</div><div id="messages-list"></div>`;
+  document.body.insertBefore(container, document.getElementById('add-product-btn'));
+
+  // re-init tab click behavior (so new tab works)
+  setupTabs();
+
+  // Real-time listener for 'orders'
+  const ordersCol = collection(db, "orders");
+  const ordersQuery = query(ordersCol, orderBy("createdAt", "desc"));
+
+  const messagesList = document.getElementById('messages-list');
+  onSnapshot(ordersQuery, (snap) => {
+    messagesList.innerHTML = '';
+    if(snap.empty){
+      messagesList.innerHTML = '<div style="color:#666">Nu există comenzi încă.</div>';
+      return;
+    }
+    snap.forEach(doc => {
+      const d = doc.data();
+      const card = document.createElement('div');
+      card.className = 'message-card';
+      const ts = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate().toLocaleString() : '';
+      const meta = `<div class="msg-meta"><strong>${escapeHtml(d.name || '—')}</strong> • ${escapeHtml(ts)}</div>`;
+      let itemsHtml = '<div class="msg-items">';
+      if(Array.isArray(d.items) && d.items.length){
+        d.items.forEach(it=>{
+          itemsHtml += `<div class="msg-item">
+            <img src="${sanitizeUrl(it.img) || ''}" onerror="this.src='data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'><rect fill=\\'#eee\\' width=\\'100%\\' height=\\'100%\\'/><text x=\\'50%\\' y=\\'50%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'#bbb\\' font-size=\\'12\\'>No image</text></svg>`)}'"/>
+            <div style="font-size:13px">${escapeHtml(it.name || '')}</div>
+          </div>`;
+        });
+      } else {
+        itemsHtml += '<div style="color:#666">Fără produse.</div>';
+      }
+      itemsHtml += '</div>';
+      card.innerHTML = meta + itemsHtml;
+      messagesList.appendChild(card);
+    });
+  });
+}
+
+/* Kick off IP check */
+checkAndEnableMessagesTab();
+
+/* Initial render states */
+renderCart(); // empty cart
+// products will be rendered by onSnapshot listener automatically
+
+</script>
+</body>
+</html>
