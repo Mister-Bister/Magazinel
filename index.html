@@ -16,6 +16,7 @@
   .product-card img{width:100%;height:110px;object-fit:cover;border-radius:6px}
   .product-card .name{margin-top:8px;font-weight:600;font-size:14px;min-height:36px}
   .product-card .price{font-size:13px;color:#555;margin-top:4px}
+  .product-card .stock{font-size:12px;color:#666;margin-top:2px}
   .product-card .actions{margin-top:10px}
   .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
   .add-btn{background:var(--green);color:#fff}
@@ -41,6 +42,7 @@
     .products{justify-content:center}
     .product-card{width:44%}
   }
+  .login-btn{background:#fff;color:#000;font-size:12px;padding:4px 6px;margin:6px;border-radius:6px;cursor:pointer;position:absolute;right:10px;top:10px}
 </style>
 </head>
 <body>
@@ -50,12 +52,13 @@
   <div class="tab active" data-tab="produse">Produse</div>
   <div class="tab" data-tab="cos">Coș</div>
   <div class="tab" data-tab="mesaje" style="display:none;">Mesaje</div>
+  <button class="login-btn" id="loginBtn">Login</button>
 </div>
 
 <!-- PRODUSE -->
 <div id="produse" class="tab-content active">
   <div style="margin-bottom:10px;color:#333">
-    Lista de produse — apasă + pentru a adăuga unul nou (nume + link imagine + preț)
+    Lista de produse — apasă + pentru a adăuga unul nou (nume + link imagine + preț + stoc)
   </div>
   <div class="products" id="products-container">
     <div style="color:#666">Nu există produse încă. Apasă + pentru a adăuga unul.</div>
@@ -103,7 +106,8 @@ const db = getFirestore(app);
 let products = [];
 let cart = [];
 let isAdmin = false;
-const YOUR_IP = "82.79.226.16";
+const adminUser = "Vasilealexjonny";
+const adminPass = "02050103";
 
 /* UI refs */
 const productsContainer = document.getElementById('products-container');
@@ -113,6 +117,7 @@ const addProductBtn = document.getElementById('add-product-btn');
 const submitOrderBtn = document.getElementById('submit-order');
 const userNameInput = document.getElementById('user-name');
 const tabsBar = document.getElementById('tabsBar');
+const loginBtn = document.getElementById('loginBtn');
 
 /* Tabs */
 tabsBar.addEventListener('click', (ev) => {
@@ -126,19 +131,17 @@ tabsBar.addEventListener('click', (ev) => {
   if(content) content.classList.add('active');
 });
 
-/* Admin IP check */
-async function checkAdmin() {
-  try {
-    const resp = await fetch('https://api.ipify.org?format=json');
-    const data = await resp.json();
-    if(data.ip === YOUR_IP){
-      isAdmin = true;
-      addProductBtn.style.display = "block";
-      document.querySelector('.tab[data-tab="mesaje"]').style.display = "block";
-    }
-  } catch(e){ console.warn("IP check failed", e);}
-}
-checkAdmin();
+/* Login */
+loginBtn.addEventListener('click', () => {
+  const user = prompt("Username:");
+  const pass = prompt("Password:");
+  if(user === adminUser && pass === adminPass){
+    isAdmin = true;
+    addProductBtn.style.display = "block";
+    document.querySelector('.tab[data-tab="mesaje"]').style.display = "block";
+    alert("Bine ai venit, admin!");
+  } else alert("Username sau parola gresita.");
+});
 
 /* Products */
 const productsCol = collection(db,"products");
@@ -147,7 +150,7 @@ onSnapshot(productsQuery, snap => {
   products=[];
   snap.forEach(docSnap=>{
     const d = docSnap.data();
-    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price});
+    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price,stock:d.stock});
   });
   renderProducts();
 });
@@ -155,18 +158,20 @@ onSnapshot(productsQuery, snap => {
 function renderProducts(){
   productsContainer.innerHTML='';
   if(products.length===0){
-    productsContainer.innerHTML='<div style="color:#666">Nu există produse încă. Apasă + pentru a adăuga unul.</div>';
+    productsContainer.innerHTML='<div style="color:#666">Nu există produse încă.</div>';
     return;
   }
   products.forEach((p,idx)=>{
     const card=document.createElement('div');
     card.className='product-card';
+    const stockText = p.stock > 0 ? `Stoc: ${p.stock}` : 'Stoc epuizat';
     card.innerHTML=`
       <img src="${p.img}" alt="${p.name}" />
       <div class="name">${p.name}</div>
       <div class="price">Preț: ${parseFloat(p.price).toFixed(2)} RON</div>
+      <div class="stock">${stockText}</div>
       <div class="actions">
-        <button class="btn add-btn" data-index="${idx}">Adaugă la coș</button>
+        <button class="btn add-btn" data-index="${idx}" ${p.stock <= 0 ? 'disabled' : ''}>Adaugă la coș</button>
       </div>
     `;
     if(isAdmin){
@@ -178,8 +183,16 @@ function renderProducts(){
     }
     productsContainer.appendChild(card);
   });
+
   productsContainer.querySelectorAll('.add-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ addToCart(Number(btn.dataset.index)); });
+    btn.addEventListener('click', async()=>{
+      const index = Number(btn.dataset.index);
+      const product = products[index];
+      if(product.stock <= 0) return alert("Stoc epuizat!");
+      addToCart(index);
+      const productRef = doc(db,"products",product.id);
+      await updateDoc(productRef,{stock: product.stock - 1});
+    });
   });
 }
 
@@ -187,11 +200,13 @@ function renderProducts(){
 addProductBtn.addEventListener('click', async()=>{
   const name = prompt("Numele produsului:");
   if(!name) return;
-  const img = prompt("Link imagine (http(s)):");
-  if(!img) return;
+  const img = prompt("Link imagine (ex: https://i.imgur.com/xxxx.jpg):");
+  if(!img) return alert("Trebuie un link direct de la Imgur!");
   const price = prompt("Preț (RON):");
   if(!price || isNaN(price)) return alert("Preț invalid!");
-  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),createdAt:serverTimestamp()});
+  const stock = prompt("Număr de produse în stoc:");
+  if(!stock || isNaN(stock) || Number(stock) < 0) return alert("Stoc invalid!");
+  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),stock:Number(stock),createdAt:serverTimestamp()});
 });
 
 /* Cart */
@@ -288,4 +303,5 @@ Total: ${total.toFixed(2)} RON`;
 </script>
 </body>
 </html>
+
 
