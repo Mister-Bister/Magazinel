@@ -255,6 +255,79 @@
     transform: rotate(90deg) scale(1.1);
   }
   
+  /* Allergens Modal */
+  .alergeni-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    animation: fadeIn 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .alergeni-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .alergeni-modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: zoomIn 0.3s ease;
+    cursor: default;
+    position: relative;
+  }
+  
+  .alergeni-modal-content h3 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    text-align: center;
+  }
+  
+  .alergeni-modal-content p {
+    font-size: 16px;
+    color: #666;
+    line-height: 1.6;
+    margin: 0;
+    text-align: center;
+  }
+  
+  .alergeni-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    color: #666;
+    font-size: 32px;
+    font-weight: 300;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+  }
+  
+  .alergeni-modal-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: rotate(90deg) scale(1.1);
+    color: #333;
+  }
+  
   @media (max-width: 768px) {
     .image-modal-content {
       max-width: 95%;
@@ -295,6 +368,9 @@
   
   .product-card .actions{
     margin:0 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   
   .btn{
@@ -305,6 +381,20 @@
     font-weight: 600;
     font-size: 14px;
     transition: all 0.3s ease;
+  }
+  
+  .alergeni-btn{
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    color:#fff;
+    width: 100%;
+    box-shadow: 0 4px 15px rgba(255,152,0,0.3);
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  
+  .alergeni-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,152,0,0.5);
   }
   
   .add-btn{
@@ -782,6 +872,15 @@
   <img class="image-modal-content" id="modalImage" src="" alt="Expanded product image">
 </div>
 
+<!-- Allergens Modal -->
+<div class="alergeni-modal" id="alergeniModal">
+  <div class="alergeni-modal-content">
+    <span class="alergeni-modal-close" id="closeAlergeniModal">&times;</span>
+    <h3>⚠️ Alergeni</h3>
+    <p id="alergeniText"></p>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -835,6 +934,10 @@ document.getElementById('login-btn').addEventListener('click', ()=>{
     isAdmin = true;
     document.querySelector('.tab[data-tab="mesaje"]').style.display="block";
     document.getElementById('add-product-btn').style.display="block";
+    // Refresh orders display immediately when admin logs in
+    if(lastOrdersSnapshot) {
+      renderOrders(lastOrdersSnapshot);
+    }
     alert("Autentificare reușită ca admin!");
   } else alert("Date incorecte!");
 });
@@ -846,7 +949,7 @@ onSnapshot(productsQuery, snap => {
   products=[];
   snap.forEach(docSnap=>{
     const d=docSnap.data();
-    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price,stock:d.stock});
+    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price,stock:d.stock,alergeni:d.alergeni||''});
   });
   renderProducts();
 });
@@ -863,7 +966,10 @@ function renderProducts(){
       <div class="name">${p.name}</div>
       <div class="price">Preț: ${p.price} RON</div>
       <div class="stoc">Stoc: ${p.stock ?? 0}</div>
-      <div class="actions"><button class="btn add-btn" data-index="${idx}" ${p.stock<=0?'disabled':''}>Adaugă la coș</button></div>
+      <div class="actions">
+        <button class="btn add-btn" data-index="${idx}" ${p.stock<=0?'disabled':''}>Adaugă la coș</button>
+        ${p.alergeni ? `<button class="btn alergeni-btn" data-alergeni="${p.alergeni.replace(/"/g, '&quot;')}">⚠️ Alergeni</button>` : ''}
+      </div>
     `;
     if(isAdmin){
       const delBtn=document.createElement('button');
@@ -874,6 +980,13 @@ function renderProducts(){
     c.appendChild(card);
   });
   c.querySelectorAll('.add-btn').forEach(b=>b.onclick=()=>addToCart(Number(b.dataset.index)));
+  // Add click handlers to alergeni buttons
+  c.querySelectorAll('.alergeni-btn').forEach(b=>{
+    b.onclick=(e)=>{
+      e.stopPropagation();
+      openAlergeniModal(b.dataset.alergeni);
+    };
+  });
   // Add click handlers to product images
   c.querySelectorAll('.product-card img').forEach(img=>{
     img.onclick=(e)=>{
@@ -889,7 +1002,8 @@ document.getElementById('add-product-btn').onclick=async()=>{
   const img=prompt("Link imagine (Imgur recomandat):"); if(!img) return;
   const price=prompt("Preț (RON):"); if(!price||isNaN(price)) return alert("Preț invalid!");
   const stock=parseInt(prompt("Stoc disponibil:"),10)||0;
-  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),stock,createdAt:serverTimestamp()});
+  const alergeni=prompt("Alergeni (lasă gol dacă nu există):")||'';
+  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),stock,alergeni,createdAt:serverTimestamp()});
 };
 
 /* Cart logic */
@@ -1037,13 +1151,49 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && imageModal.classList.contains('active')) {
     closeImageModal();
   }
+  if (e.key === 'Escape' && alergeniModal.classList.contains('active')) {
+    closeAlergeniModal();
+  }
 });
+
+/* Allergens Modal functionality */
+const alergeniModal = document.getElementById('alergeniModal');
+const alergeniText = document.getElementById('alergeniText');
+const closeAlergeniModalBtn = document.getElementById('closeAlergeniModal');
+
+function openAlergeniModal(alergeni) {
+  alergeniText.textContent = alergeni || 'Nu sunt alergeni specificați pentru acest produs.';
+  alergeniModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAlergeniModal() {
+  alergeniModal.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+closeAlergeniModalBtn.onclick = (e) => {
+  e.stopPropagation();
+  closeAlergeniModal();
+};
+
+alergeniModal.onclick = (e) => {
+  if (e.target === alergeniModal) {
+    closeAlergeniModal();
+  }
+};
 
 /* Orders / Mesaje tab */
 const ordersCol=collection(db,"orders");
 const ordersQuery=query(ordersCol,orderBy("createdAt","desc"));
-onSnapshot(ordersQuery,snap=>{
-  if(!isAdmin)return;
+let lastOrdersSnapshot = null;
+
+function renderOrders(snap) {
+  if(!isAdmin) {
+    const cont=document.getElementById('messages-list');
+    cont.innerHTML='<div style="color:#fff;text-align:center;padding:40px;font-size:18px;opacity:0.8;">Trebuie să fii autentificat ca admin pentru a vedea comenzile.</div>';
+    return;
+  }
   const cont=document.getElementById('messages-list');
   cont.innerHTML='';
   if(snap.empty){cont.innerHTML='<div style="color:#fff;text-align:center;padding:40px;font-size:18px;opacity:0.8;">Nu există comenzi încă.</div>';return;}
@@ -1085,6 +1235,11 @@ onSnapshot(ordersQuery,snap=>{
       };
     });
   });
+}
+
+onSnapshot(ordersQuery,snap=>{
+  lastOrdersSnapshot = snap;
+  renderOrders(snap);
 });
 </script>
 </body>
