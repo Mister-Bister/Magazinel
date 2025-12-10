@@ -366,6 +366,20 @@
     font-weight: 500;
   }
   
+  .product-card .number{
+    position:absolute;
+    top:8px;
+    left:8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color:#fff;
+    font-size:14px;
+    font-weight:700;
+    padding:6px 12px;
+    border-radius:20px;
+    box-shadow: 0 4px 10px rgba(102,126,234,0.4);
+    z-index: 5;
+  }
+  
   .product-card .actions{
     margin:0 12px 12px;
     display: flex;
@@ -766,6 +780,118 @@
     }
   }
   
+  /* Cash Register */
+  .cash-register-input {
+    width: 100%;
+    padding: 20px;
+    font-size: 32px;
+    font-weight: 600;
+    text-align: center;
+    border: 3px solid #667eea;
+    border-radius: 16px;
+    background: #fff;
+    color: #333;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+    transition: all 0.3s ease;
+  }
+  
+  .cash-register-input:focus {
+    outline: none;
+    border-color: #764ba2;
+    box-shadow: 0 6px 25px rgba(102,126,234,0.5);
+    transform: translateY(-2px);
+  }
+  
+  .cash-register-cart {
+    background: #fff;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  
+  .cash-register-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #f5f7fa;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+  
+  .cash-register-item-name {
+    flex: 1;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .cash-register-item-qty {
+    margin: 0 12px;
+    color: #667eea;
+    font-weight: 700;
+  }
+  
+  .cash-register-item-price {
+    color: #667eea;
+    font-weight: 700;
+    min-width: 80px;
+    text-align: right;
+  }
+  
+  .cash-register-total {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #667eea;
+  }
+  
+  .cash-register-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  
+  .cash-register-btn {
+    flex: 1;
+    padding: 16px;
+    border: 0;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .clear-btn {
+    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(255,65,108,0.3);
+  }
+  
+  .clear-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,65,108,0.5);
+  }
+  
+  .checkout-btn {
+    background: var(--green);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(17,153,142,0.3);
+  }
+  
+  .checkout-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(17,153,142,0.5);
+  }
+  
   @media (max-width:520px){
     .products{
       justify-content:center;
@@ -812,6 +938,13 @@
     button.send-btn {
       width: 100%;
     }
+    .cash-register-input {
+      font-size: 24px;
+      padding: 16px;
+    }
+    .cash-register-actions {
+      flex-direction: column;
+    }
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -827,6 +960,7 @@
   <div class="tab active" data-tab="produse">Produse</div>
   <div class="tab" data-tab="cos">Coș</div>
   <div class="tab" data-tab="mesaje" style="display:none;">Mesaje</div>
+  <div class="tab" data-tab="casa-marcat" style="display:none;">Casă de marcat</div>
   <button class="login-btn" id="login-btn">Login (Admin)</button>
 </div>
 
@@ -861,6 +995,19 @@
 <div id="mesaje" class="tab-content">
   <div style="margin-bottom:20px;color:#fff;font-size:16px;font-weight:500;text-shadow:0 2px 4px rgba(0,0,0,0.2);padding:16px;background:rgba(255,255,255,0.1);border-radius:12px;backdrop-filter:blur(10px);">📬 Toate comenzile primite (live)</div>
   <div id="messages-list"><div style="color:#fff;text-align:center;padding:40px;font-size:18px;opacity:0.8;">Nu există comenzi încă.</div></div>
+</div>
+
+<!-- CASA DE MARCAT -->
+<div id="casa-marcat" class="tab-content">
+  <div style="margin-bottom:20px;color:#fff;font-size:16px;font-weight:500;text-shadow:0 2px 4px rgba(0,0,0,0.2);padding:16px;background:rgba(255,255,255,0.1);border-radius:12px;backdrop-filter:blur(10px);">💰 Casă de marcat — tastează numărul produsului (ex: 42 sau 42*3 pentru 3 bucăți)</div>
+  <input type="text" class="cash-register-input" id="cash-register-input" placeholder="Tastează numărul produsului..." autofocus>
+  <div class="cash-register-cart" id="cash-register-cart">
+    <div style="color:#666;text-align:center;padding:40px;font-size:18px;">Coșul este gol.</div>
+  </div>
+  <div class="cash-register-actions">
+    <button class="cash-register-btn clear-btn" id="clear-cash-register">Șterge coșul</button>
+    <button class="cash-register-btn checkout-btn" id="checkout-cash-register">Finalizează</button>
+  </div>
 </div>
 
 <!-- Floating add product button -->
@@ -900,6 +1047,7 @@ let products = [];
 let cart = [];
 let isAdmin = false;
 let selectedDonation = 0;
+let cashRegisterCart = []; // Separate cart for cash register
 
 /* Tabs */
 document.getElementById('tabsBar').addEventListener('click', (ev) => {
@@ -933,6 +1081,7 @@ document.getElementById('login-btn').addEventListener('click', ()=>{
   if(user==="Vasilealexjonny" && pass==="02050103"){
     isAdmin = true;
     document.querySelector('.tab[data-tab="mesaje"]').style.display="block";
+    document.querySelector('.tab[data-tab="casa-marcat"]').style.display="block";
     document.getElementById('add-product-btn').style.display="block";
     // Refresh orders display immediately when admin logs in
     if(lastOrdersSnapshot) {
@@ -949,7 +1098,7 @@ onSnapshot(productsQuery, snap => {
   products=[];
   snap.forEach(docSnap=>{
     const d=docSnap.data();
-    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price,stock:d.stock,alergeni:d.alergeni||''});
+    products.push({id:docSnap.id,name:d.name,img:d.img,price:d.price,stock:d.stock,alergeni:d.alergeni||'',number:d.number||null});
   });
   renderProducts();
 });
@@ -962,6 +1111,7 @@ function renderProducts(){
     const card=document.createElement('div');
     card.className='product-card';
     card.innerHTML=`
+      ${p.number ? `<div class="number">#${p.number}</div>` : ''}
       <img src="${p.img}" alt="${p.name}" data-img="${p.img}" />
       <div class="name">${p.name}</div>
       <div class="price">Preț: ${p.price} RON</div>
@@ -1003,7 +1153,31 @@ document.getElementById('add-product-btn').onclick=async()=>{
   const price=prompt("Preț (RON):"); if(!price||isNaN(price)) return alert("Preț invalid!");
   const stock=parseInt(prompt("Stoc disponibil:"),10)||0;
   const alergeni=prompt("Alergeni (lasă gol dacă nu există):")||'';
-  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),stock,alergeni,createdAt:serverTimestamp()});
+  let productNumber = prompt("Număr produs (1-1000, lasă gol pentru auto):");
+  if(productNumber === '') {
+    // Auto-assign: find the next available number
+    const usedNumbers = products.filter(p => p.number).map(p => p.number).sort((a,b) => a-b);
+    productNumber = null;
+    for(let i = 1; i <= 1000; i++) {
+      if(!usedNumbers.includes(i)) {
+        productNumber = i;
+        break;
+      }
+    }
+    if(!productNumber) {
+      return alert("Nu mai sunt numere disponibile (1-1000)!");
+    }
+  } else {
+    productNumber = parseInt(productNumber, 10);
+    if(isNaN(productNumber) || productNumber < 1 || productNumber > 1000) {
+      return alert("Număr invalid! Trebuie să fie între 1 și 1000.");
+    }
+    // Check if number is already used
+    if(products.some(p => p.number === productNumber)) {
+      return alert(`Numărul ${productNumber} este deja folosit de alt produs!`);
+    }
+  }
+  await addDoc(productsCol,{name,img,price:parseFloat(price).toFixed(2),stock,alergeni,number:productNumber,createdAt:serverTimestamp()});
 };
 
 /* Cart logic */
@@ -1240,6 +1414,157 @@ function renderOrders(snap) {
 onSnapshot(ordersQuery,snap=>{
   lastOrdersSnapshot = snap;
   renderOrders(snap);
+});
+
+/* Cash Register */
+const cashRegisterInput = document.getElementById('cash-register-input');
+const cashRegisterCartEl = document.getElementById('cash-register-cart');
+const clearCashRegisterBtn = document.getElementById('clear-cash-register');
+const checkoutCashRegisterBtn = document.getElementById('checkout-cash-register');
+
+function parseProductInput(input) {
+  input = input.trim();
+  if(!input) return null;
+  
+  // Check for multiplier format: "42*3" or "42 * 3"
+  const match = input.match(/^(\d+)\s*\*\s*(\d+)$/);
+  if(match) {
+    return {
+      number: parseInt(match[1], 10),
+      quantity: parseInt(match[2], 10)
+    };
+  }
+  
+  // Single product: just the number
+  const num = parseInt(input, 10);
+  if(isNaN(num)) return null;
+  
+  return {
+    number: num,
+    quantity: 1
+  };
+}
+
+function addToCashRegister(productNumber, quantity = 1) {
+  const product = products.find(p => p.number === productNumber);
+  if(!product) {
+    alert(`Produsul cu numărul ${productNumber} nu a fost găsit!`);
+    return false;
+  }
+  
+  // Check if product already in cart
+  const existingIndex = cashRegisterCart.findIndex(item => item.id === product.id);
+  if(existingIndex >= 0) {
+    cashRegisterCart[existingIndex].quantity += quantity;
+  } else {
+    cashRegisterCart.push({
+      ...product,
+      quantity: quantity
+    });
+  }
+  
+  renderCashRegisterCart();
+  return true;
+}
+
+function renderCashRegisterCart() {
+  if(cashRegisterCart.length === 0) {
+    cashRegisterCartEl.innerHTML = '<div style="color:#666;text-align:center;padding:40px;font-size:18px;">Coșul este gol.</div>';
+    return;
+  }
+  
+  let html = '';
+  let total = 0;
+  
+  cashRegisterCart.forEach((item, idx) => {
+    const itemTotal = parseFloat(item.price) * item.quantity;
+    total += itemTotal;
+    html += `
+      <div class="cash-register-item">
+        <div class="cash-register-item-name">${item.name}</div>
+        <div class="cash-register-item-qty">x${item.quantity}</div>
+        <div class="cash-register-item-price">${itemTotal.toFixed(2)} RON</div>
+      </div>
+    `;
+  });
+  
+  html += `
+    <div class="cash-register-total">
+      <span>Total:</span>
+      <span>${total.toFixed(2)} RON</span>
+    </div>
+  `;
+  
+  cashRegisterCartEl.innerHTML = html;
+}
+
+// Handle input
+cashRegisterInput.addEventListener('keypress', (e) => {
+  if(e.key === 'Enter') {
+    const input = cashRegisterInput.value.trim();
+    if(!input) return;
+    
+    const parsed = parseProductInput(input);
+    if(!parsed) {
+      alert('Format invalid! Folosește numărul produsului (ex: 42) sau număr*cantitate (ex: 42*3)');
+      cashRegisterInput.value = '';
+      return;
+    }
+    
+    if(addToCashRegister(parsed.number, parsed.quantity)) {
+      cashRegisterInput.value = '';
+      cashRegisterInput.focus();
+    }
+  }
+});
+
+// Clear cash register cart
+clearCashRegisterBtn.addEventListener('click', () => {
+  if(cashRegisterCart.length === 0) return;
+  if(confirm('Ești sigur că vrei să ștergi coșul?')) {
+    cashRegisterCart = [];
+    renderCashRegisterCart();
+    cashRegisterInput.focus();
+  }
+});
+
+// Checkout cash register
+checkoutCashRegisterBtn.addEventListener('click', () => {
+  if(cashRegisterCart.length === 0) {
+    alert('Coșul este gol!');
+    return;
+  }
+  
+  const total = cashRegisterCart.reduce((sum, item) => {
+    return sum + (parseFloat(item.price) * item.quantity);
+  }, 0);
+  
+  const receipt = `Casă de marcat\n${'='.repeat(30)}\n${cashRegisterCart.map(item => 
+    `${item.name} x${item.quantity} — ${(parseFloat(item.price) * item.quantity).toFixed(2)} RON`
+  ).join('\n')}\n${'='.repeat(30)}\nTotal: ${total.toFixed(2)} RON`;
+  
+  // Copy to clipboard
+  navigator.clipboard.writeText(receipt).then(() => {
+    alert(`Bonul a fost copiat în clipboard!\n\n${receipt}`);
+    cashRegisterCart = [];
+    renderCashRegisterCart();
+    cashRegisterInput.focus();
+  }).catch(() => {
+    alert(`Bon:\n\n${receipt}`);
+    cashRegisterCart = [];
+    renderCashRegisterCart();
+    cashRegisterInput.focus();
+  });
+});
+
+// Focus input when tab is opened
+document.getElementById('tabsBar').addEventListener('click', (ev) => {
+  const tabEl = ev.target.closest('.tab');
+  if(tabEl && tabEl.dataset.tab === 'casa-marcat') {
+    setTimeout(() => {
+      cashRegisterInput.focus();
+    }, 100);
+  }
 });
 </script>
 </body>
