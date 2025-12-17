@@ -661,6 +661,110 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(102,126,234,0.6);
   }
+
+  /* Order confirmation */
+  .order-confirmation-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2500;
+    backdrop-filter: blur(10px);
+  }
+
+  .order-confirmation-overlay.active {
+    display: flex;
+  }
+
+  .order-confirmation-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .order-confirmation-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .order-confirmation-subtitle {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 16px;
+  }
+
+  .order-confirmation-eta {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .order-confirmation-note {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 18px;
+  }
+
+  .order-confirmation-close {
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 0;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+  }
+
+  .order-confirmation-close:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+  }
+
+  /* Confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 10px;
+    height: 16px;
+    background: #ffd700;
+    top: -20px;
+    border-radius: 2px;
+    opacity: 0.9;
+    z-index: 2600;
+    pointer-events: none;
+    animation: confettiFall 2.8s ease-out forwards;
+  }
+
+  @keyframes confettiFall {
+    0% {
+      transform: translate3d(0, 0, 0) rotateZ(0deg);
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(var(--confetti-x, 0px), 100vh, 0) rotateZ(360deg);
+      opacity: 0;
+    }
+  }
   
   /* messages list */
   .message-card{
@@ -1028,6 +1132,26 @@
   </div>
 </div>
 
+<!-- Order confirmation overlay -->
+<div class="order-confirmation-overlay" id="order-confirmation">
+  <div class="order-confirmation-box">
+    <div class="order-confirmation-title">Mulțumum pentru comandă 🎉</div>
+    <div class="order-confirmation-subtitle">Am înregistrat comanda ta.</div>
+    <div class="order-confirmation-eta">
+      Estimare pregătire: ~<span id="eta-minutes">2</span> minute
+    </div>
+    <div class="order-confirmation-note" id="tombola-message" style="display:none;font-weight:600;color:#333;">
+      🎟 Ai fost selectat(ă) pentru tombolă!
+    </div>
+    <div class="order-confirmation-note">
+      Timpul este calculat în funcție de comenzile nefinalizate din fața ta.
+    </div>
+    <button class="order-confirmation-close" id="close-order-confirmation">
+      Închide
+    </button>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -1261,6 +1385,70 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function computeEtaMinutes() {
+  if (!lastOrdersSnapshot) {
+    return 2;
+  }
+  let unfinished = 0;
+  lastOrdersSnapshot.forEach(docSnap => {
+    const d = docSnap.data();
+    if (!d.finished) {
+      unfinished++;
+    }
+  });
+  // Include și comanda curentă
+  unfinished += 1;
+  const eta = unfinished * 2;
+  return eta < 2 ? 2 : eta;
+}
+
+function showOrderConfirmation(etaMinutes, raffleSelected) {
+  const overlay = document.getElementById('order-confirmation');
+  const etaEl = document.getElementById('eta-minutes');
+  const tombolaEl = document.getElementById('tombola-message');
+  if (etaEl) {
+    etaEl.textContent = etaMinutes.toString();
+  }
+  if (tombolaEl) {
+    tombolaEl.style.display = raffleSelected ? 'block' : 'none';
+  }
+  if (overlay) {
+    overlay.classList.add('active');
+  }
+}
+
+// Simple confetti generator
+function triggerConfetti() {
+  const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#667eea', '#ff9f43'];
+  const pieces = 80;
+  for (let i = 0; i < pieces; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.backgroundColor = colors[i % colors.length];
+    piece.style.setProperty('--confetti-x', (Math.random() * 200 - 100) + 'px');
+    piece.style.animationDelay = (Math.random() * 0.8) + 's';
+    piece.style.transform = `translate3d(0, 0, 0) rotateZ(${Math.random() * 360}deg)`;
+    document.body.appendChild(piece);
+    setTimeout(() => {
+      piece.remove();
+    }, 3200);
+  }
+}
+
+// Close confirmation overlay
+document.getElementById('close-order-confirmation').addEventListener('click', () => {
+  const overlay = document.getElementById('order-confirmation');
+  if (overlay) overlay.classList.remove('active');
+});
+
+document.getElementById('order-confirmation').addEventListener('click', (e) => {
+  if (e.target.id === 'order-confirmation') {
+    const overlay = document.getElementById('order-confirmation');
+    if (overlay) overlay.classList.remove('active');
+  }
+});
+
 /* Submit order */
 document.getElementById('submit-order').onclick=async()=>{
   const name=document.getElementById('user-name').value.trim();
@@ -1270,6 +1458,12 @@ document.getElementById('submit-order').onclick=async()=>{
 
   const subtotal=cart.reduce((s,i)=>s+parseFloat(i.price),0);
   const total = subtotal + selectedDonation;
+
+  // 1 din 5 comenzi peste 25 RON intră la tombolă
+  let raffleSelected = false;
+  if (total > 25) {
+    raffleSelected = Math.random() < 0.2;
+  }
   
   let receipt = `Comandă de la ${name}\n------------------------\n${cart.map(i=>`• ${i.name} — ${i.price} RON`).join('\n')}\n------------------------\n`;
   if(selectedDonation > 0) {
@@ -1282,8 +1476,14 @@ document.getElementById('submit-order').onclick=async()=>{
     donation: selectedDonation,
     subtotal: subtotal,
     total: total,
-    createdAt:serverTimestamp(),finished:false
+    createdAt:serverTimestamp(),finished:false,
+    raffleSelected: raffleSelected
   });
+
+  // Show confirmation with ETA and confetti
+  const etaMinutes = computeEtaMinutes();
+  showOrderConfirmation(etaMinutes, raffleSelected);
+  triggerConfetti();
 
   // send via EmailJS
   emailjs.send("service_n4f4quf","template_uecxfb8",{email,name,message:receipt})
@@ -1387,7 +1587,24 @@ function renderOrders(snap) {
     receipt += `Total: ${total.toFixed(2)} RON`;
 
     const copyBtn=document.createElement('button');copyBtn.textContent=d.finished?"✅ Copiat":"📋 Copiază comanda";copyBtn.className="btn";copyBtn.style.marginTop="8px";copyBtn.disabled=d.finished;
-    copyBtn.onclick=async()=>{await navigator.clipboard.writeText(receipt);await updateDoc(doc(db,"orders",docSnap.id),{finished:true});copyBtn.textContent="✅ Copiat!";card.style.opacity='0.6';};
+    copyBtn.onclick=async()=>{
+      await navigator.clipboard.writeText(receipt);
+      await updateDoc(doc(db,"orders",docSnap.id),{finished:true});
+      copyBtn.textContent="✅ Copiat!";
+      card.style.opacity='0.6';
+      // Trimite email clientului că comanda este gata
+      if (d.email) {
+        emailjs.send(
+          "service_n4f4quf",
+          "template_uecxfb8",
+          {
+            email: d.email,
+            name: d.name || "",
+            message: "Comanda este gata"
+          }
+        ).catch(err => console.error("Eroare email 'comanda este gata':", err));
+      }
+    };
 
     if(d.finished){const badge=document.createElement('div');badge.className='finished-badge';badge.textContent='✔ Finished';card.appendChild(badge);}
     
@@ -1396,6 +1613,9 @@ function renderOrders(snap) {
       totalDisplay += `<br>💝 Donație: ${donation.toFixed(2)} RON`;
     }
     totalDisplay += `<br><strong>Total: ${total.toFixed(2)} RON</strong>`;
+    if (d.raffleSelected) {
+      totalDisplay += `<br>🎟 <strong>Ai fost selectat(ă) pentru tombolă</strong>`;
+    }
     
     card.innerHTML+=`<div class="msg-meta"><b>${d.name}</b> (${d.email||"fără email"})</div><div class="msg-items">${itemsHtml}</div><div class="cart-total">${totalDisplay}</div>`;
     card.appendChild(copyBtn);
@@ -1569,4 +1789,5 @@ document.getElementById('tabsBar').addEventListener('click', (ev) => {
 </script>
 </body>
 </html>
+
 
